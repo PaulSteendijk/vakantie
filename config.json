@@ -6,10 +6,10 @@
   "email":        "paulsteendijkportfolio@gmail.com",
   "menu": {
     "fldr01": {
-      "name": "Paintings",
+      "name": "Mexico",
       "desc": "Oil, acrylic and watercolour works",
       "subs": {
-        "sub01": { "name": "2024", "desc": "Recent work from 2024" },
+        "sub01": { "name": "Mex", "desc": "vakantie in Mexico" },
         "sub02": { "name": "2023", "desc": "Works completed in 2023" },
         "sub03": { "name": "2022", "desc": "Works completed in 2022" }
       }
