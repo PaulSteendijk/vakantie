@@ -198,10 +198,36 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
 .empty-msg{padding:1rem 0;font-size:.8rem;color:var(--muted);font-style:italic}
 
 /* ── About ── */
-.about-wrap{max-width:560px;padding-top:.5rem}
+.about-wrap{max-width:620px;padding-top:.5rem}
 .about-wrap h2{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:2.2rem;line-height:1.2;margin-bottom:1.5rem}
 .about-wrap p{font-size:.92rem;line-height:1.85;color:#444;margin-bottom:1rem}
 .contact-link{display:inline-block;margin-top:1rem;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--accent);padding-bottom:2px}
+
+/* About image — floats left on desktop, full width on mobile */
+.about-img-wrap{
+  float:left;margin:0 1.8rem 1.2rem 0;
+  width:220px;flex-shrink:0;
+}
+.about-img-wrap img{
+  width:100%;height:auto;display:block;
+  border:1px solid var(--border);
+}
+/* Placeholder shown when no image URL is set */
+.about-img-placeholder{
+  width:220px;height:220px;
+  border:1px dashed var(--border);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:.5rem;color:var(--muted);
+  font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--white);
+}
+.about-img-placeholder svg{opacity:.3}
+.about-clearfix{clear:both}
+@media(max-width:500px){
+  .about-img-wrap{float:none;width:100%;margin:0 0 1.2rem 0}
+  .about-img-placeholder{width:100%;height:180px}
+}
 </style>
 </head>
 <body>
@@ -645,14 +671,41 @@ function buildAboutPage(cfg){
   var pg=document.createElement('div');
   pg.className='page'; pg.id='pg-about';
   var w=document.createElement('div'); w.className='about-wrap';
+
+  /* Image or placeholder */
+  var imgWrap=document.createElement('div');
+  imgWrap.className='about-img-wrap';
+  if(cfg.about_image){
+    var img=document.createElement('img');
+    img.src=cfg.about_image;
+    img.alt=((cfg.site_first||'')+' '+(cfg.site_last||'')).trim();
+    imgWrap.appendChild(img);
+  } else {
+    /* Placeholder with a person silhouette */
+    imgWrap.innerHTML=
+      '<div class="about-img-placeholder">'+
+      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">'+
+      '<circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>'+
+      '<span>Add photo in config.json</span>'+
+      '</div>';
+  }
+  w.appendChild(imgWrap);
+
   var h=document.createElement('h2'); h.textContent='About the artist';
   var p=document.createElement('p'); p.textContent=cfg.about||'Write about yourself here.';
-  w.appendChild(h); w.appendChild(p);
+  w.appendChild(h);
+  w.appendChild(p);
+
   if(cfg.email){
     var a=document.createElement('a'); a.className='contact-link';
     a.href='mailto:'+cfg.email; a.textContent='Get in touch';
     w.appendChild(a);
   }
+
+  /* Clear float */
+  var cl=document.createElement('div'); cl.className='about-clearfix';
+  w.appendChild(cl);
+
   pg.appendChild(w);
   document.getElementById('pages').appendChild(pg);
   return pg;
