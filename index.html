@@ -85,7 +85,7 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   color:var(--muted);cursor:pointer;padding:.45rem .85rem;border-radius:2px;
   transition:color .2s;position:relative;touch-action:manipulation;
 }
-/* ── Tooltips on nav buttons xxxx ── */
+/* ── Tooltips on nav buttons ── */
 .pnav-btn[data-tip],
 .snav-btn[data-tip]{position:relative}
 
@@ -204,13 +204,23 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   -webkit-tap-highlight-color:transparent;
 }
 .tag-pill:hover{background:var(--white);color:var(--ink)}
-.tag-pill.active{
-  background:var(--accent);border-color:var(--accent);color:#fff;
+.tag-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tag-pill.hidden{display:none}
+.tag-count{margin-left:.35rem;font-size:.6rem;opacity:.7}
+
+/* AND/OR toggle */
+.andor-btn{
+  padding:0 .6rem;height:24px;border-radius:3px;
+  background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:.65rem;font-family:'Jost',sans-serif;
+  letter-spacing:.1em;text-transform:uppercase;font-weight:400;
+  cursor:pointer;display:flex;align-items:center;
+  transition:background .15s,color .15s,border-color .15s;
+  touch-action:manipulation;flex-shrink:0;
+  margin-left:.25rem;
 }
-.tag-count{
-  margin-left:.35rem;font-size:.6rem;
-  opacity:.7;
-}
+.andor-btn:hover{background:var(--white);color:var(--ink)}
+.andor-btn.and-mode{background:var(--ink);border-color:var(--ink);color:var(--white)}
 .grid-lbl{display:block;cursor:pointer;background:var(--white);border:1px solid var(--border);transition:box-shadow .2s;-webkit-tap-highlight-color:rgba(200,169,110,.2)}
 .grid-lbl:hover{box-shadow:0 3px 14px rgba(0,0,0,.1)}
 .grid-img{aspect-ratio:1;overflow:hidden}
@@ -289,7 +299,7 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   See the README in your repository for how to enable GitHub Pages.
 </div>
 
-<!-- Header with primary nav  xxxx -->
+<!-- Header with primary nav -->
 <header>
   <span class="site-name" id="site-name-el">&#8203;</span>
   <nav id="primary-nav"></nav>
@@ -854,8 +864,9 @@ function buildAboutBtn(pNav){
 }
 
 /* ── Show All ── */
-var TAGS_CFG = {};        /* tag number → label, from tags.json */
-var activeTagFilters = {'00': true}; /* default: #00 (All) selected */
+var TAGS_CFG = {};
+var activeTagFilters = {'00': true};
+var tagAndMode = false;  /* false=OR, true=AND */
 
 function showAll(){
   activeFldr='showall'; activeSub=null;
@@ -957,7 +968,6 @@ function toTitle(name){
 function renderShowAllGrid(pg, allPairs){
   pg.innerHTML='';
 
-  /* Flatten all images */
   var allImages=[], allThumbs=[];
   allPairs.forEach(function(pair){
     var pid=pageId(pair.fldr,pair.sub);
@@ -966,32 +976,47 @@ function renderShowAllGrid(pg, allPairs){
       allThumbs.push(im.thumb||im.src);
     });
   });
-
   if(!allImages.length){ pg.innerHTML='<p class="empty-msg">No images found.</p>'; return; }
 
-  /* Discover which tags are actually used */
+  /* Count used tags (exclude implicit #00 from per-tag count, add total separately) */
   var usedTags={};
   allImages.forEach(function(im){
-    im.tags.forEach(function(t){ usedTags[t]=(usedTags[t]||0)+1; });
+    im.tags.forEach(function(t){ if(t!=='00') usedTags[t]=(usedTags[t]||0)+1; });
   });
+  usedTags['00']=allImages.length;
 
   /* Build tag bar */
   var tagBar=document.createElement('div');
-  tagBar.className='tag-bar';
-  tagBar.id='showall-tagbar';
-  var lbl=document.createElement('span'); lbl.className='tag-bar-label'; lbl.textContent='Filter';
-  tagBar.appendChild(lbl);
+  tagBar.className='tag-bar'; tagBar.id='showall-tagbar';
 
-  /* Sort: 00 first, then numeric order, only used tags */
+  var filterLbl=document.createElement('span');
+  filterLbl.className='tag-bar-label'; filterLbl.textContent='Filter';
+  tagBar.appendChild(filterLbl);
+
+  /* AND/OR toggle */
+  var andorBtn=document.createElement('button');
+  andorBtn.className='andor-btn'+(tagAndMode?' and-mode':'');
+  andorBtn.id='andor-btn';
+  andorBtn.setAttribute('onclick','toggleAndOr()');
+  andorBtn.textContent=tagAndMode?'AND':'OR';
+  tagBar.appendChild(andorBtn);
+
+  var sep=document.createElement('span');
+  sep.style.cssText='width:1px;height:16px;background:var(--border);flex-shrink:0;margin:0 .1rem';
+  tagBar.appendChild(sep);
+
+  /* Pills */
   var tagNums=Object.keys(usedTags).sort(function(a,b){
     if(a==='00') return -1; if(b==='00') return 1;
     return parseInt(a)-parseInt(b);
   });
 
   tagNums.forEach(function(num){
-    var label = TAGS_CFG[num] || ('#'+num);
+    var label=TAGS_CFG[num]||('#'+num);
     var pill=document.createElement('button');
-    pill.className='tag-pill'+(activeTagFilters[num]?' active':'');
+    var hidden=(num==='00' && tagAndMode);
+    pill.className='tag-pill'+(activeTagFilters[num]?' active':'')+(hidden?' hidden':'');
+    pill.setAttribute('data-tagnum', num);
     pill.setAttribute('onclick','toggleTagFilter("'+num+'")');
     pill.innerHTML=label+'<span class="tag-count">'+usedTags[num]+'</span>';
     tagBar.appendChild(pill);
@@ -999,35 +1024,31 @@ function renderShowAllGrid(pg, allPairs){
 
   pg.appendChild(tagBar);
 
-  /* Build grid container — reused on filter change */
   var gridWrap=document.createElement('div');
   gridWrap.id='showall-grid-wrap';
   pg.appendChild(gridWrap);
 
-  /* Store master list for filtering */
-  window._showAllImages  = allImages;
-  window._showAllThumbs  = allThumbs;
+  window._showAllImages=allImages;
+  window._showAllThumbs=allThumbs;
 
   applyTagFilter();
 }
 
+/* Toggle AND/OR — pill state preserved */
+function toggleAndOr(){
+  tagAndMode=!tagAndMode;
+  var btn=document.getElementById('andor-btn');
+  if(btn){ btn.textContent=tagAndMode?'AND':'OR'; btn.classList.toggle('and-mode',tagAndMode); }
+  /* Show/hide #00 pill */
+  var allPill=document.querySelector('.tag-pill[data-tagnum="00"]');
+  if(allPill) allPill.classList.toggle('hidden', tagAndMode);
+  applyTagFilter();
+}
+
 function toggleTagFilter(num){
-  if(num==='00'){
-    /* Selecting All: deselect everything else */
-    activeTagFilters={};
-    activeTagFilters['00']=!false; /* toggle: if was on, turn off */
-    var wasOn = document.querySelector('.tag-pill.active[onclick*=\'"00"\']');
-    if(wasOn){ activeTagFilters={'00':false}; }
-    else { activeTagFilters={'00':true}; }
-  } else {
-    activeTagFilters[num] = !activeTagFilters[num];
-  }
-  /* Update pill appearances */
-  var tagBar=document.getElementById('showall-tagbar');
-  if(tagBar) tagBar.querySelectorAll('.tag-pill').forEach(function(p){
-    var m=p.getAttribute('onclick').match(/"(\d+)"/);
-    if(m) p.classList.toggle('active', !!activeTagFilters[m[1]]);
-  });
+  activeTagFilters[num]=!activeTagFilters[num];
+  var pill=document.querySelector('.tag-pill[data-tagnum="'+num+'"]');
+  if(pill) pill.classList.toggle('active', !!activeTagFilters[num]);
   applyTagFilter();
 }
 
@@ -1038,24 +1059,31 @@ function applyTagFilter(){
   if(!gridWrap) return;
   gridWrap.innerHTML='';
 
-  /* Which tag numbers are active? */
-  var active=Object.keys(activeTagFilters).filter(function(k){return activeTagFilters[k];});
+  /* Active tags — in AND mode skip #00 (implicit, always true) */
+  var active=Object.keys(activeTagFilters).filter(function(k){
+    if(!activeTagFilters[k]) return false;
+    if(tagAndMode && k==='00') return false;
+    return true;
+  });
 
-  /* Filter: image passes if it has ANY active tag (OR logic) */
   var filtered=[];
   allImages.forEach(function(im,i){
-    if(!active.length){ return; } /* nothing selected → show nothing */
-    var pass=active.some(function(t){ return im.tags.indexOf(t)>=0; });
-    if(pass) filtered.push({im:im, thumb:allThumbs[i], origIdx:i});
+    if(!active.length){ return; }
+    var pass;
+    if(tagAndMode){
+      pass=active.every(function(t){ return im.tags.indexOf(t)>=0; });
+    } else {
+      pass=active.some(function(t){ return im.tags.indexOf(t)>=0; });
+    }
+    if(pass) filtered.push({im:im, thumb:allThumbs[i]});
   });
 
   if(!filtered.length){
     var m=document.createElement('p'); m.className='empty-msg';
-    m.textContent=active.length ? 'No images match the selected tags.' : 'Select a tag to show images.';
+    m.textContent=active.length ? 'No images match the selected tags.' : 'Select one or more tags to show images.';
     gridWrap.appendChild(m); return;
   }
 
-  /* Build a lightbox group for the filtered set */
   var fvKey='__showall_filtered__';
   IMG_CACHE[fvKey]=filtered.map(function(f){return {src:f.im.src,cap:f.im.cap};});
 
