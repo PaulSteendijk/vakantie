@@ -183,6 +183,34 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   object-fit:contain;
   background:var(--bg);
 }
+
+/* ── Tag filter bar (Show All page only) ── */
+.tag-bar{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:.35rem;padding:.6rem 0 .8rem;
+}
+.tag-bar-label{
+  font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-right:.15rem;flex-shrink:0;
+}
+.tag-pill{
+  padding:0 .7rem;height:24px;border-radius:12px;
+  background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:.7rem;font-family:'Jost',sans-serif;
+  letter-spacing:.05em;
+  cursor:pointer;display:flex;align-items:center;
+  transition:background .15s,color .15s,border-color .15s;
+  touch-action:manipulation;white-space:nowrap;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.tag-pill:hover{background:var(--white);color:var(--ink)}
+.tag-pill.active{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+}
+.tag-count{
+  margin-left:.35rem;font-size:.6rem;
+  opacity:.7;
+}
 .grid-lbl{display:block;cursor:pointer;background:var(--white);border:1px solid var(--border);transition:box-shadow .2s;-webkit-tap-highlight-color:rgba(200,169,110,.2)}
 .grid-lbl:hover{box-shadow:0 3px 14px rgba(0,0,0,.1)}
 .grid-img{aspect-ratio:1;overflow:hidden}
@@ -497,9 +525,10 @@ function toggleFit(){
     g.classList.toggle('fit-mode', fitMode);
   });
   document.getElementById('fit-btn').classList.toggle('active', fitMode);
+  /* Reapply filter so newly built grid also gets fit-mode */
+  if(document.getElementById('showall-grid-wrap')) applyTagFilter();
   try{ localStorage.setItem('portfolio-fit', fitMode?'1':'0'); }catch(e){}
 }
-
 /* Restore saved preferences */
 (function(){
   var savedCols = null, savedFit = null;
@@ -798,11 +827,22 @@ function finalizeNav(readyFolders, pNav, cfg){
     CFG.menu[item.fldr].subs=validSubsObj;
   });
 
+  /* Show-all button — before About */
+  buildShowAllBtn(pNav);
+
   /* About button */
   buildAboutBtn(pNav);
 
   /* Auto-select first folder */
   if(readyFolders.length) showFolder(readyFolders[0].fldr);
+}
+
+function buildShowAllBtn(pNav){
+  var btn=document.createElement('button');
+  btn.className='pnav-btn'; btn.textContent='Show all';
+  btn.dataset.fldr='showall';
+  btn.setAttribute('onclick',"showAll()");
+  pNav.appendChild(btn);
 }
 
 function buildAboutBtn(pNav){
@@ -811,6 +851,248 @@ function buildAboutBtn(pNav){
   btn.dataset.fldr='about';
   btn.setAttribute('onclick',"showAbout()");
   pNav.appendChild(btn);
+}
+
+/* ── Show All ── */
+var TAGS_CFG = {};        /* tag number → label, from tags.json */
+var activeTagFilters = {'00': true}; /* default: #00 (All) selected */
+
+function showAll(){
+  activeFldr='showall'; activeSub=null;
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.pnav-btn').forEach(function(b){
+    b.classList.toggle('active', b.dataset.fldr==='showall');
+  });
+  document.getElementById('secondary-nav').innerHTML='';
+  document.getElementById('secondary-nav').classList.add('hidden');
+
+  var pg = document.getElementById('pg-showall');
+  if(!pg){
+    pg = document.createElement('div');
+    pg.className='page'; pg.id='pg-showall';
+    document.getElementById('pages').appendChild(pg);
+  }
+  pg.classList.add('active');
+  window.scrollTo(0,0);
+
+  /* Fetch tags.json if not yet loaded, then build grid */
+  if(Object.keys(TAGS_CFG).length === 0){
+    fetch(BASE_API+'tags.json')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){
+        if(data){
+          /* GitHub API: content is base64 */
+          var json = JSON.parse(atob(data.content.replace(/\n/g,'')));
+          TAGS_CFG = json;
+        }
+        /* Always ensure #00 exists */
+        if(!TAGS_CFG['00']) TAGS_CFG['00'] = 'All';
+        buildShowAllGrid(pg);
+      })
+      .catch(function(){
+        TAGS_CFG = {'00':'All'};
+        buildShowAllGrid(pg);
+      });
+  } else {
+    buildShowAllGrid(pg);
+  }
+}
+
+function buildShowAllGrid(pg){
+  pg.innerHTML = '<p class="loading">Loading all images…</p>';
+
+  var allPairs = [];
+  if(!CFG) return;
+  Object.keys(CFG.menu).sort().forEach(function(fldr){
+    var subs = CFG.menu[fldr].subs || {};
+    Object.keys(subs).sort().forEach(function(sub){ allPairs.push({fldr:fldr, sub:sub}); });
+  });
+  if(!allPairs.length){ pg.innerHTML='<p class="empty-msg">No folders configured.</p>'; return; }
+
+  var pending = allPairs.length;
+  function done(){
+    pending--;
+    if(pending===0) renderShowAllGrid(pg, allPairs);
+  }
+
+  allPairs.forEach(function(pair){
+    var pid = pageId(pair.fldr, pair.sub);
+    if(IMG_CACHE[pid]){ done(); return; }
+    var folder = pair.fldr+'/'+pair.sub;
+    Promise.all([
+      fetch(BASE_API+folder).then(function(r){return r.ok?r.json():[];}).catch(function(){return [];}),
+      fetch(BASE_API+folder+'/thumbs').then(function(r){return r.ok?r.json():[];}).catch(function(){return [];})
+    ]).then(function(results){
+      var mainFiles=results[0], thumbFiles=results[1], thumbMap={};
+      thumbFiles.forEach(function(f){ if(f.type==='file'&&IMG_EXT.test(f.name)) thumbMap[f.name]=BASE_RAW+f.path; });
+      var imgs=mainFiles.filter(function(f){return f.type==='file'&&IMG_EXT.test(f.name);}).sort(function(a,b){return a.name.localeCompare(b.name);});
+      IMG_CACHE[pid]=imgs.map(function(f){
+        return {src:BASE_RAW+f.path, thumb:thumbMap[f.name]||BASE_RAW+f.path, cap:toTitle(f.name), tags:extractTags(f.name)};
+      });
+      var indPg=document.getElementById('pg-'+pid);
+      if(indPg&&!LOADED[pid]){ LOADED[pid]=true; var ld=indPg.querySelector('.loading'); if(ld)ld.remove(); renderIndividualGrid(indPg,pid); }
+      done();
+    });
+  });
+}
+
+/* Extract tag numbers from a filename e.g. "001_sunset_#01_#03.jpg" → ["00","01","03"] */
+function extractTags(filename){
+  var tags = ['00']; /* every image implicitly has #00 */
+  var matches = filename.match(/#(\d{2})/g);
+  if(matches) matches.forEach(function(m){ var n=m.slice(1); if(n!=='00') tags.push(n); });
+  return tags;
+}
+
+/* Strip tags and number prefix from filename for display */
+function toTitle(name){
+  return name
+    .replace(/\.[^.]+$/,'')        /* remove extension */
+    .replace(/#\d{2}/g,'')         /* remove #01 #02 etc */
+    .replace(/^\d+[_\-.\s]+/,'')   /* remove leading 001_ */
+    .replace(/[-_]/g,' ')
+    .trim();
+}
+
+function renderShowAllGrid(pg, allPairs){
+  pg.innerHTML='';
+
+  /* Flatten all images */
+  var allImages=[], allThumbs=[];
+  allPairs.forEach(function(pair){
+    var pid=pageId(pair.fldr,pair.sub);
+    (IMG_CACHE[pid]||[]).forEach(function(im){
+      allImages.push({src:im.src, cap:im.cap, tags:im.tags||['00']});
+      allThumbs.push(im.thumb||im.src);
+    });
+  });
+
+  if(!allImages.length){ pg.innerHTML='<p class="empty-msg">No images found.</p>'; return; }
+
+  /* Discover which tags are actually used */
+  var usedTags={};
+  allImages.forEach(function(im){
+    im.tags.forEach(function(t){ usedTags[t]=(usedTags[t]||0)+1; });
+  });
+
+  /* Build tag bar */
+  var tagBar=document.createElement('div');
+  tagBar.className='tag-bar';
+  tagBar.id='showall-tagbar';
+  var lbl=document.createElement('span'); lbl.className='tag-bar-label'; lbl.textContent='Filter';
+  tagBar.appendChild(lbl);
+
+  /* Sort: 00 first, then numeric order, only used tags */
+  var tagNums=Object.keys(usedTags).sort(function(a,b){
+    if(a==='00') return -1; if(b==='00') return 1;
+    return parseInt(a)-parseInt(b);
+  });
+
+  tagNums.forEach(function(num){
+    var label = TAGS_CFG[num] || ('#'+num);
+    var pill=document.createElement('button');
+    pill.className='tag-pill'+(activeTagFilters[num]?' active':'');
+    pill.setAttribute('onclick','toggleTagFilter("'+num+'")');
+    pill.innerHTML=label+'<span class="tag-count">'+usedTags[num]+'</span>';
+    tagBar.appendChild(pill);
+  });
+
+  pg.appendChild(tagBar);
+
+  /* Build grid container — reused on filter change */
+  var gridWrap=document.createElement('div');
+  gridWrap.id='showall-grid-wrap';
+  pg.appendChild(gridWrap);
+
+  /* Store master list for filtering */
+  window._showAllImages  = allImages;
+  window._showAllThumbs  = allThumbs;
+
+  applyTagFilter();
+}
+
+function toggleTagFilter(num){
+  if(num==='00'){
+    /* Selecting All: deselect everything else */
+    activeTagFilters={};
+    activeTagFilters['00']=!false; /* toggle: if was on, turn off */
+    var wasOn = document.querySelector('.tag-pill.active[onclick*=\'"00"\']');
+    if(wasOn){ activeTagFilters={'00':false}; }
+    else { activeTagFilters={'00':true}; }
+  } else {
+    activeTagFilters[num] = !activeTagFilters[num];
+  }
+  /* Update pill appearances */
+  var tagBar=document.getElementById('showall-tagbar');
+  if(tagBar) tagBar.querySelectorAll('.tag-pill').forEach(function(p){
+    var m=p.getAttribute('onclick').match(/"(\d+)"/);
+    if(m) p.classList.toggle('active', !!activeTagFilters[m[1]]);
+  });
+  applyTagFilter();
+}
+
+function applyTagFilter(){
+  var allImages = window._showAllImages || [];
+  var allThumbs = window._showAllThumbs || [];
+  var gridWrap  = document.getElementById('showall-grid-wrap');
+  if(!gridWrap) return;
+  gridWrap.innerHTML='';
+
+  /* Which tag numbers are active? */
+  var active=Object.keys(activeTagFilters).filter(function(k){return activeTagFilters[k];});
+
+  /* Filter: image passes if it has ANY active tag (OR logic) */
+  var filtered=[];
+  allImages.forEach(function(im,i){
+    if(!active.length){ return; } /* nothing selected → show nothing */
+    var pass=active.some(function(t){ return im.tags.indexOf(t)>=0; });
+    if(pass) filtered.push({im:im, thumb:allThumbs[i], origIdx:i});
+  });
+
+  if(!filtered.length){
+    var m=document.createElement('p'); m.className='empty-msg';
+    m.textContent=active.length ? 'No images match the selected tags.' : 'Select a tag to show images.';
+    gridWrap.appendChild(m); return;
+  }
+
+  /* Build a lightbox group for the filtered set */
+  var fvKey='__showall_filtered__';
+  IMG_CACHE[fvKey]=filtered.map(function(f){return {src:f.im.src,cap:f.im.cap};});
+
+  var grid=document.createElement('div');
+  grid.className='photo-grid'+(fitMode?' fit-mode':'');
+
+  filtered.forEach(function(f,idx){
+    var lbl=document.createElement('label'); lbl.className='grid-lbl';
+    lbl.setAttribute('for','r-open');
+    lbl.setAttribute('onclick',"openFv('"+fvKey+"',"+idx+")");
+    var di=document.createElement('div'); di.className='grid-img';
+    var img=document.createElement('img'); img.src=f.thumb; img.alt=f.im.cap; img.loading='lazy';
+    di.appendChild(img);
+    var info=document.createElement('div'); info.className='grid-info';
+    var t=document.createElement('div'); t.className='grid-title'; t.textContent=f.im.cap;
+    info.appendChild(t); lbl.appendChild(di); lbl.appendChild(info); grid.appendChild(lbl);
+  });
+
+  gridWrap.appendChild(grid);
+}
+
+/* Helper: render individual sub-page grid from cache */
+function renderIndividualGrid(pg, pid){
+  var imgs=IMG_CACHE[pid]||[];
+  if(!imgs.length){ var m=document.createElement('p'); m.className='empty-msg'; m.textContent='No images found.'; pg.appendChild(m); return; }
+  var grid=document.createElement('div'); grid.className='photo-grid'+(fitMode?' fit-mode':'');
+  imgs.forEach(function(im,idx){
+    var lbl=document.createElement('label'); lbl.className='grid-lbl';
+    lbl.setAttribute('for','r-open'); lbl.setAttribute('onclick',"openFv('"+pid+"',"+idx+")");
+    var di=document.createElement('div'); di.className='grid-img';
+    var img=document.createElement('img'); img.src=im.thumb||im.src; img.alt=im.cap; img.loading='lazy';
+    di.appendChild(img);
+    var info=document.createElement('div'); info.className='grid-info';
+    var t=document.createElement('div'); t.className='grid-title'; t.textContent=im.cap;
+    info.appendChild(t); lbl.appendChild(di); lbl.appendChild(info); grid.appendChild(lbl);
+  });
+  pg.appendChild(grid);
 }
 
 function showAbout(){
