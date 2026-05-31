@@ -16,7 +16,7 @@
 @media(max-width:500px){:root{--cols:2}}
 body{font-family:'Jost',sans-serif;font-weight:300;background:var(--bg);color:var(--ink);min-height:100vh}
 
-/* ── Local file warning xx ── */
+/* ── Local file warning ── */
 #local-warn{
   display:none;
   background:#7a3b1e;color:#fff;
@@ -139,6 +139,26 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
 }
 .col-btn:hover{background:var(--white);color:var(--ink)}
 .col-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Fit-mode toggle */
+.fit-btn{
+  margin-left:.6rem;
+  padding:0 .7rem;height:26px;border-radius:3px;
+  background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:.65rem;font-family:'Jost',sans-serif;
+  letter-spacing:.08em;text-transform:uppercase;
+  cursor:pointer;display:flex;align-items:center;gap:.35rem;
+  transition:background .15s,color .15s,border-color .15s;
+  touch-action:manipulation;white-space:nowrap;
+}
+.fit-btn:hover{background:var(--white);color:var(--ink)}
+.fit-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Fit mode: full image visible in square cell */
+.photo-grid.fit-mode .grid-img img{
+  object-fit:contain;
+  background:var(--bg);
+}
 .grid-lbl{display:block;cursor:pointer;background:var(--white);border:1px solid var(--border);transition:box-shadow .2s;-webkit-tap-highlight-color:rgba(200,169,110,.2)}
 .grid-lbl:hover{box-shadow:0 3px 14px rgba(0,0,0,.1)}
 .grid-img{aspect-ratio:1;overflow:hidden}
@@ -207,6 +227,7 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
     <button class="col-btn" onclick="setCols(4)">4</button>
     <button class="col-btn" onclick="setCols(5)">5</button>
     <button class="col-btn" onclick="setCols(6)">6</button>
+    <button class="fit-btn" id="fit-btn" onclick="toggleFit()">&#9974; Full image</button>
   </div>
 </div>
 <div class="divider2"></div>
@@ -412,11 +433,27 @@ function setCols(n){
   });
   try{ localStorage.setItem('portfolio-cols', n); }catch(e){}
 }
-/* Restore saved column preference */
+
+/* ── Fit toggle ── */
+var fitMode = false;
+function toggleFit(){
+  fitMode = !fitMode;
+  document.querySelectorAll('.photo-grid').forEach(function(g){
+    g.classList.toggle('fit-mode', fitMode);
+  });
+  var btn = document.getElementById('fit-btn');
+  btn.classList.toggle('active', fitMode);
+  btn.textContent = fitMode ? '\u26f6 Cropped' : '\u26f6 Full image';
+  try{ localStorage.setItem('portfolio-fit', fitMode?'1':'0'); }catch(e){}
+}
+
+/* Restore saved preferences */
 (function(){
-  var saved = null;
-  try{ saved=localStorage.getItem('portfolio-cols'); }catch(e){}
-  if(saved) setCols(parseInt(saved));
+  var savedCols = null, savedFit = null;
+  try{ savedCols=localStorage.getItem('portfolio-cols'); }catch(e){}
+  try{ savedFit=localStorage.getItem('portfolio-fit'); }catch(e){}
+  if(savedCols) setCols(parseInt(savedCols));
+  if(savedFit==='1') toggleFit();
 })();
 
 /* Keyboard */
@@ -540,7 +577,7 @@ function loadImages(fldr, sub){
     IMG_CACHE[pid]=groupImages;
 
     var grid=document.createElement('div');
-    grid.className='photo-grid';
+    grid.className='photo-grid' + (fitMode ? ' fit-mode' : '');
 
     imgs.forEach(function(f,idx){
       /* Use thumb if available, otherwise full-res */
