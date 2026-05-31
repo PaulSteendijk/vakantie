@@ -76,7 +76,7 @@ body{font-family:'Jost',sans-serif;font-weight:300;background:var(--bg);color:va
 
 /* ── Header / primary nav ── */
 header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:1rem}
-.site-name{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:2rem;letter-spacing:.04em;color:var(--ink);cursor:pointer}
+.site-name{font-family:'Cormorant Garamond',serif;font-weight:300;font-style:italic;font-size:2rem;letter-spacing:.04em;color:var(--accent);cursor:pointer}
 .site-name em{font-style:italic;color:var(--accent)}
 #primary-nav{display:flex;gap:.15rem;flex-wrap:wrap}
 .pnav-btn{
@@ -223,6 +223,7 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   <nav id="secondary-nav" class="hidden"></nav>
   <div class="col-picker" id="col-picker">
     <span class="col-picker-label">Columns</span>
+    <button class="col-btn" onclick="setCols(1)">1</button>
     <button class="col-btn" onclick="setCols(2)">2</button>
     <button class="col-btn active" onclick="setCols(3)">3</button>
     <button class="col-btn" onclick="setCols(4)">4</button>
@@ -232,7 +233,7 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
     <button class="col-btn" onclick="setCols(8)">8</button>
     <button class="col-btn" onclick="setCols(9)">9</button>
     <button class="col-btn" onclick="setCols(10)">10</button>
-    <button class="fit-btn" id="fit-btn" onclick="toggleFit()">Full image: OFF</button>
+    <button class="fit-btn" id="fit-btn" onclick="toggleFit()">Fit</button>
   </div>
 </div>
 <div class="divider2"></div>
@@ -446,9 +447,7 @@ function toggleFit(){
   document.querySelectorAll('.photo-grid').forEach(function(g){
     g.classList.toggle('fit-mode', fitMode);
   });
-  var btn = document.getElementById('fit-btn');
-  btn.classList.toggle('active', fitMode);
-  btn.textContent = fitMode ? 'Full image: ON' : 'Full image: OFF';
+  document.getElementById('fit-btn').classList.toggle('active', fitMode);
   try{ localStorage.setItem('portfolio-fit', fitMode?'1':'0'); }catch(e){}
 }
 
