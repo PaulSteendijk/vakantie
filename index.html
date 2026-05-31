@@ -85,6 +85,29 @@ header{padding:2.5rem var(--pad) 0;display:flex;align-items:baseline;justify-con
   color:var(--muted);cursor:pointer;padding:.45rem .85rem;border-radius:2px;
   transition:color .2s;position:relative;touch-action:manipulation;
 }
+/* ── Tooltips on nav buttons ── */
+.pnav-btn[data-tip],
+.snav-btn[data-tip]{position:relative}
+
+.pnav-btn[data-tip]::before,
+.snav-btn[data-tip]::before{
+  content:attr(data-tip);
+  position:absolute;
+  bottom:calc(100% + 8px);
+  left:50%;transform:translateX(-50%);
+  background:var(--ink);color:var(--white);
+  font-size:.7rem;font-family:'Jost',sans-serif;
+  font-style:normal;letter-spacing:.03em;text-transform:none;
+  font-weight:300;
+  white-space:nowrap;padding:.35rem .65rem;border-radius:3px;
+  pointer-events:none;
+  opacity:0;transition:opacity .18s;
+  z-index:50;
+}
+.pnav-btn[data-tip]:hover::before,
+.snav-btn[data-tip]:hover::before{opacity:1}
+
+/* Underline accent on primary nav (::after) */
 .pnav-btn::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:0;height:1px;background:var(--accent);transition:width .25s}
 .pnav-btn.active{color:var(--ink)}
 .pnav-btn.active::after,.pnav-btn:hover::after{width:55%}
@@ -512,12 +535,17 @@ function buildSecondaryNav(fldr){
   if(!CFG||!CFG.menu[fldr]) return;
   var subs=CFG.menu[fldr].subs;
   Object.keys(subs).sort().forEach(function(sub){
-    if(!subs[sub]) return; /* skip subs with no name (not configured) */
+    var sCfg=subs[sub];
+    if(!sCfg) return;
+    var label = typeof sCfg==='object' ? sCfg.name : sCfg;
+    var desc  = typeof sCfg==='object' ? sCfg.desc : null;
+    if(!label) return;
     var btn=document.createElement('button');
     btn.className='snav-btn';
-    btn.textContent=subs[sub];
+    btn.textContent=label;
     btn.dataset.fldr=fldr;
     btn.dataset.sub=sub;
+    if(desc) btn.setAttribute('data-tip', desc);
     btn.setAttribute('onclick',"showPage('"+fldr+"','"+sub+"')");
     nav.appendChild(btn);
   });
@@ -669,7 +697,9 @@ function boot(cfg){
         /* Filter subs: must be in config AND exist in repo */
         var cfgSubs=cfg.menu[fldr].subs||{};
         var validSubs=Object.keys(cfgSubs).sort().filter(function(sub){
-          return cfgSubs[sub] && existingDirs[sub];
+          var sCfg=cfgSubs[sub];
+          var hasName = typeof sCfg==='object' ? !!sCfg.name : !!sCfg;
+          return hasName && existingDirs[sub];
         });
 
         if(validSubs.length){
@@ -696,11 +726,13 @@ function finalizeNav(readyFolders, pNav, cfg){
   readyFolders.sort(function(a,b){return a.fldr.localeCompare(b.fldr);});
 
   readyFolders.forEach(function(item){
-    var name=cfg.menu[item.fldr].name||item.fldr;
+    var fCfg = cfg.menu[item.fldr];
+    var name = fCfg.name || item.fldr;
     var btn=document.createElement('button');
     btn.className='pnav-btn';
     btn.textContent=name;
     btn.dataset.fldr=item.fldr;
+    if(fCfg.desc) btn.setAttribute('data-tip', fCfg.desc);
     btn.setAttribute('onclick',"showFolder('"+item.fldr+"')");
     pNav.appendChild(btn);
 

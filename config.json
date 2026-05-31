@@ -1,32 +1,33 @@
 {
   "site_first": "Paul",
   "site_last":  "Steendijk",
-  "about":      "This is me.",
-  "email":      "paulsteendijkportfolio@gmail.com",
+  "about":      "Write a few sentences about yourself here — your background, your practice, what draws you to making art.",
+  "email":      "you@example.com",
   "menu": {
     "fldr01": {
-      "name": "sketches",
+      "name": "Paintings",
+      "desc": "Oil, acrylic and watercolour works",
       "subs": {
-        "sub01": "#1",
-        "sub02": "#2",
-        "sub03": "#3",
-		"sub04": "#4"
+        "sub01": { "name": "2024", "desc": "Recent work from 2024" },
+        "sub02": { "name": "2023", "desc": "Works completed in 2023" },
+        "sub03": { "name": "2022", "desc": "Works completed in 2022" }
       }
     },
     "fldr02": {
-      "name": "fotos",
+      "name": "Drawings",
+      "desc": "Pencil, charcoal and ink studies",
       "subs": {
-        "sub01": "Pencil",
-        "sub02": "Charcoal",
-        "sub03": "Ink"
+        "sub01": { "name": "Pencil",   "desc": "Graphite and pencil drawings" },
+        "sub02": { "name": "Charcoal", "desc": "Charcoal studies" },
+        "sub03": { "name": "Ink",      "desc": "Ink and brush drawings" }
       }
     },
     "fldr03": {
-      "name": "folder #3",
+      "name": "Photography",
+      "desc": "Digital and film photography",
       "subs": {
-        "sub01": "Landscapes",
-        "sub02": "Portraits",
-	"sub03": "and more"
+        "sub01": { "name": "Landscapes", "desc": "Outdoor and landscape photography" },
+        "sub02": { "name": "Portraits",  "desc": "Portrait photography" }
       }
     }
   }
